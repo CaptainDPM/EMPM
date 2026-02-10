@@ -329,8 +329,24 @@ body {
   color: #ff6b6b;
 }
 
-/* Map Placeholder */
-.map-placeholder {
+/* API Status */
+.api-status {
+  margin-bottom: 1rem;
+  font-family: "Arial", sans-serif;
+  font-size: 0.92rem;
+  color: #9aa0a6;
+}
+
+.api-status[data-type="success"] {
+  color: #7bd88f;
+}
+
+.api-status[data-type="warning"] {
+  color: #ffb86b;
+}
+
+/* Map Panel */
+.map-panel {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
@@ -343,27 +359,55 @@ body {
   text-align: center;
 }
 
-.map-placeholder svg {
-  color: #444;
-  margin-bottom: 1rem;
-}
-
-.map-placeholder h3 {
+.map-helper h3 {
   font-size: 1.5rem;
   color: #888;
   font-family: "Arial", sans-serif;
   margin-bottom: 0.5rem;
 }
 
-.map-placeholder p {
+.map-helper p {
   color: #666;
   font-family: "Arial", sans-serif;
   max-width: 500px;
   line-height: 1.6;
 }
 
-.map-placeholder .count {
-  margin-top: 2rem;
+
+.map-helper {
+  max-width: 700px;
+}
+
+.map-token-input-row {
+  margin-top: 1rem;
+  display: flex;
+  gap: 0.75rem;
+}
+
+.map-token-input-row .search-input {
+  flex: 1;
+}
+
+.map-canvas {
+  width: 100%;
+  min-height: 600px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.mapboxgl-popup-content {
+  background: #0f1724;
+  color: #e8edf4;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.mapboxgl-popup-tip {
+  border-top-color: #0f1724 !important;
+}
+
+.map-panel .count {
+  margin-top: 1rem;
   padding: 1rem;
   background: rgba(196, 30, 58, 0.1);
   border: 1px solid rgba(196, 30, 58, 0.3);
@@ -606,6 +650,10 @@ body {
   .view-toggle {
     width: 100%;
     justify-content: center;
+  }
+
+  .map-token-input-row {
+    flex-direction: column;
   }
 
   .detail-grid {

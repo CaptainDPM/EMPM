@@ -53,41 +53,24 @@ namus-app/
 ## ✨ Features
 
 - **Search & Filter**: Search by name, location, or case ID. Filter by state, gender, and age range
-- **Featured Cases**: Random daily featured case to highlight different individuals
+- **Live NamUs Fetch**: Attempts a real-time NamUs API request and falls back to demo records if unavailable
+- **Featured Cases**: Random featured case to highlight different individuals
 - **Detailed Views**: Click any case for comprehensive information
 - **Social Sharing**: Share cases via native share or clipboard
+- **Mapbox Map View**: Interactive pin map once a Mapbox public token is entered
 - **Responsive Design**: Works on desktop, tablet, and mobile
-- **Two View Modes**: List view (active) and Map view (placeholder)
 
 ## 🔧 Customization
 
-### Adding Real NamUs Data
+### NamUs API Endpoint
 
-To connect to the real NamUs API, modify `index.js`:
+The app now requests live data from:
 
-1. Find the `SAMPLE_DATA` array (around line 1)
-2. Replace it with an API call:
-
-```javascript
-// At the top of index.js
-let SAMPLE_DATA = [];
-
-// Add this function
-async function fetchNamUsData() {
-    try {
-        const response = await fetch('https://www.namus.gov/api/CaseSets/NamUs/MissingPersons/Cases');
-        const data = await response.json();
-        SAMPLE_DATA = data.results; // Adjust based on actual API response structure
-        init();
-    } catch (error) {
-        console.error('Failed to fetch NamUs data:', error);
-        // Fallback to sample data or show error message
-    }
-}
-
-// Call it when the page loads
-fetchNamUsData();
 ```
+https://www.namus.gov/api/CaseSets/NamUs/MissingPersons/Cases/Search
+```
+
+If NamUs is down or blocks the browser request, the UI automatically falls back to demo records and shows a status message at the top of the results.
 
 ### Changing Colors
 
@@ -106,18 +89,19 @@ background: linear-gradient(90deg, #1e3ac4 0%, #1a2d8b 100%);
 In `index.html`, add new filter dropdowns in the filters panel.
 In `index.js`, add corresponding logic in the `applyFilters()` function.
 
-## 🗺️ Adding Map Functionality
+## 🗺️ Mapbox Setup
 
-To implement the real map view:
+1. Create a public token in your Mapbox account (`pk...`).
+2. Open the app and switch to **Map** view.
+3. Paste the token and click **Save Token**.
 
-1. Get a Google Maps API key or Mapbox token
-2. Add the library to `index.html`:
+The token is stored in local browser storage only (`localStorage.mapboxToken`).
+
+You can also inject it globally before `index.js` loads:
 
 ```html
-<script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY"></script>
+<script>window.MAPBOX_TOKEN = "pk.eyJ...";</script>
 ```
-
-3. Replace the map placeholder in `index.js` with actual map rendering code
 
 ## 🌐 Deployment
 
@@ -140,7 +124,7 @@ To implement the real map view:
 
 ## 📊 Current Data
 
-The app currently displays **8 sample cases** for demonstration purposes. Each case includes:
+The app attempts to load live NamUs records first. If that fails, it uses a small fallback sample dataset for demonstration. Each case includes:
 - Name, age, gender, race
 - Date and location last seen
 - Physical description

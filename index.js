@@ -1,5 +1,10 @@
-// Sample data - In production, this would come from the NamUs API
-const SAMPLE_DATA = [
+const NAMUS_API_URL =
+  "https://www.namus.gov/api/CaseSets/NamUs/MissingPersons/Cases/Search";
+const DEFAULT_MAP_CENTER = [-98.5795, 39.8283];
+const DEFAULT_MAP_ZOOM = 3;
+
+// Fallback sample data if API is unavailable
+const FALLBACK_DATA = [
   {
     id: "MP1001",
     firstName: "Maria",
@@ -34,114 +39,15 @@ const SAMPLE_DATA = [
     lat: 47.6062,
     lng: -122.3321,
   },
-  {
-    id: "MP1003",
-    firstName: "Sarah",
-    lastName: "Thompson",
-    age: 19,
-    dateLastSeen: "2025-01-03",
-    cityLastSeen: "Austin",
-    stateLastSeen: "Texas",
-    circumstances:
-      "Last seen at college campus library. Did not return to dormitory.",
-    gender: "Female",
-    race: "White/Caucasian",
-    height: "5'6\"",
-    weight: "140 lbs",
-    lat: 30.2672,
-    lng: -97.7431,
-  },
-  {
-    id: "MP1004",
-    firstName: "Michael",
-    lastName: "Williams",
-    age: 62,
-    dateLastSeen: "2024-12-08",
-    cityLastSeen: "Miami",
-    stateLastSeen: "Florida",
-    circumstances:
-      "Left home for daily walk and never returned. Has medical conditions requiring medication.",
-    gender: "Male",
-    race: "Black/African American",
-    height: "6'0\"",
-    weight: "180 lbs",
-    lat: 25.7617,
-    lng: -80.1918,
-  },
-  {
-    id: "MP1005",
-    firstName: "Emily",
-    lastName: "Martinez",
-    age: 34,
-    dateLastSeen: "2024-09-30",
-    cityLastSeen: "Denver",
-    stateLastSeen: "Colorado",
-    circumstances:
-      "Disappeared after leaving a friend's residence. Phone last pinged near downtown area.",
-    gender: "Female",
-    race: "Hispanic/Latino",
-    height: "5'5\"",
-    weight: "125 lbs",
-    lat: 39.7392,
-    lng: -104.9903,
-  },
-  {
-    id: "MP1006",
-    firstName: "Robert",
-    lastName: "Johnson",
-    age: 51,
-    dateLastSeen: "2024-11-28",
-    cityLastSeen: "Chicago",
-    stateLastSeen: "Illinois",
-    circumstances:
-      "Failed to show up for work. Car found in workplace parking lot.",
-    gender: "Male",
-    race: "White/Caucasian",
-    height: "5'11\"",
-    weight: "195 lbs",
-    lat: 41.8781,
-    lng: -87.6298,
-  },
-  {
-    id: "MP1007",
-    firstName: "Jennifer",
-    lastName: "Lee",
-    age: 23,
-    dateLastSeen: "2025-01-20",
-    cityLastSeen: "Portland",
-    stateLastSeen: "Oregon",
-    circumstances:
-      "Went missing after evening shift at restaurant. Last seen walking toward public transit station.",
-    gender: "Female",
-    race: "Asian",
-    height: "5'3\"",
-    weight: "115 lbs",
-    lat: 45.5152,
-    lng: -122.6784,
-  },
-  {
-    id: "MP1008",
-    firstName: "David",
-    lastName: "Garcia",
-    age: 37,
-    dateLastSeen: "2024-08-12",
-    cityLastSeen: "Los Angeles",
-    stateLastSeen: "California",
-    circumstances:
-      "Left for morning jog and never returned home. Phone and wallet found on jogging trail.",
-    gender: "Male",
-    race: "Hispanic/Latino",
-    height: "5'10\"",
-    weight: "175 lbs",
-    lat: 34.0522,
-    lng: -118.2437,
-  },
 ];
 
 // Application state
-let filteredData = [...SAMPLE_DATA];
+let caseData = [...FALLBACK_DATA];
+let filteredData = [...caseData];
 let selectedPerson = null;
 let currentView = "list";
+let map = null;
+let mapMarkers = [];
 let filters = {
   search: "",
   state: "",
@@ -149,17 +55,119 @@ let filters = {
   ageRange: "",
 };
 
+function getMapboxToken() {
+  const tokenFromWindow = window.MAPBOX_TOKEN;
+  const tokenFromStorage = window.localStorage.getItem("mapboxToken");
+  return tokenFromWindow || tokenFromStorage || "";
+}
+
+function setApiStatus(message, type = "info") {
+  const status = document.getElementById("apiStatus");
+  status.textContent = message;
+  status.dataset.type = type;
+}
+
+function normalizeCase(apiCase) {
+  const firstName = apiCase.firstName || apiCase.first || "Unknown";
+  const lastName = apiCase.lastName || apiCase.last || "Person";
+  const dateLastSeenRaw =
+    apiCase.dateLastSeen || apiCase.dateMissing || apiCase.missingDate || null;
+
+  return {
+    id: String(apiCase.caseNumber || apiCase.id || `${firstName}-${lastName}`),
+    firstName,
+    lastName,
+    age: Number(apiCase.age) || Number(apiCase.ageAtDisappearance) || 0,
+    dateLastSeen: dateLastSeenRaw
+      ? new Date(dateLastSeenRaw).toISOString().slice(0, 10)
+      : "",
+    cityLastSeen:
+      apiCase.cityLastSeen || apiCase.city || apiCase.lastSeenCity || "Unknown",
+    stateLastSeen:
+      apiCase.stateLastSeen || apiCase.state || apiCase.lastSeenState || "Unknown",
+    circumstances:
+      apiCase.circumstances ||
+      apiCase.circumstancesOfDisappearance ||
+      "No public circumstances provided.",
+    gender: apiCase.gender || "Unknown",
+    race: apiCase.race || apiCase.ethnicity || "Unknown",
+    height:
+      apiCase.height ||
+      apiCase.heightFrom ||
+      (apiCase.heightInInches ? `${apiCase.heightInInches} in` : "Unknown"),
+    weight:
+      apiCase.weight ||
+      (apiCase.weightFrom ? `${apiCase.weightFrom} lbs` : "Unknown"),
+    lat: Number(apiCase.latitude || apiCase.lat) || null,
+    lng: Number(apiCase.longitude || apiCase.lon || apiCase.lng) || null,
+  };
+}
+
+async function fetchNamUsData() {
+  const body = {
+    page: 1,
+    pageSize: 250,
+    sortField: "dateLastSeen",
+    sortOrder: "desc",
+    filters: {},
+  };
+
+  try {
+    setApiStatus("Loading live NamUs cases...", "info");
+
+    const response = await fetch(NAMUS_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      throw new Error(`NamUs API request failed (${response.status})`);
+    }
+
+    const payload = await response.json();
+    const rawCases = payload.cases || payload.results || payload.items || [];
+    const normalizedCases = rawCases.map(normalizeCase);
+
+    if (normalizedCases.length) {
+      caseData = normalizedCases;
+      filteredData = [...caseData];
+      setApiStatus(`Showing ${normalizedCases.length} live NamUs cases.`, "success");
+      return;
+    }
+
+    throw new Error("NamUs API returned no cases.");
+  } catch (error) {
+    console.error("Failed to load NamUs API data:", error);
+    caseData = [...FALLBACK_DATA];
+    filteredData = [...caseData];
+    setApiStatus(
+      "Live NamUs API unavailable right now. Showing fallback demo cases.",
+      "warning",
+    );
+  }
+}
+
 // Initialize the application
-function init() {
+async function init() {
+  await fetchNamUsData();
   populateStateFilter();
   setFeaturedCase();
   applyFilters();
   setupEventListeners();
 }
 
+function clearStateFilterOptions() {
+  const stateFilter = document.getElementById("stateFilter");
+  stateFilter.innerHTML = '<option value="">All States</option>';
+}
+
 // Populate the state filter dropdown with unique states from data
 function populateStateFilter() {
-  const states = [...new Set(SAMPLE_DATA.map((p) => p.stateLastSeen))].sort();
+  clearStateFilterOptions();
+  const states = [...new Set(caseData.map((p) => p.stateLastSeen))].sort();
   const stateFilter = document.getElementById("stateFilter");
 
   states.forEach((state) => {
@@ -172,15 +180,20 @@ function populateStateFilter() {
 
 // Set a random featured case
 function setFeaturedCase() {
-  const featured = SAMPLE_DATA[Math.floor(Math.random() * SAMPLE_DATA.length)];
+  const featured = caseData[Math.floor(Math.random() * caseData.length)] || caseData[0];
+  if (!featured) return;
+
   document.getElementById("featuredName").textContent =
     `${featured.firstName} ${featured.lastName}`;
 
-  const date = new Date(featured.dateLastSeen).toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
+  const date = featured.dateLastSeen
+    ? new Date(featured.dateLastSeen).toLocaleDateString("en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      })
+    : "an unknown date";
+
   document.getElementById("featuredDetails").textContent =
     `Missing since ${date} from ${featured.cityLastSeen}, ${featured.stateLastSeen}`;
 
@@ -245,11 +258,91 @@ function setupEventListeners() {
   document.getElementById("modal").addEventListener("click", (e) => {
     if (e.target.id === "modal") closeModal();
   });
+
+  // Save mapbox token
+  document.getElementById("saveMapboxToken").addEventListener("click", () => {
+    const tokenInput = document.getElementById("mapboxTokenInput");
+    const token = tokenInput.value.trim();
+    if (!token) return;
+
+    window.localStorage.setItem("mapboxToken", token);
+    renderMap();
+  });
+}
+
+function initMap() {
+  const token = getMapboxToken();
+  if (!token) return;
+  if (!window.mapboxgl) return;
+
+  if (!map) {
+    mapboxgl.accessToken = token;
+    map = new mapboxgl.Map({
+      container: "mapCanvas",
+      style: "mapbox://styles/mapbox/dark-v11",
+      center: DEFAULT_MAP_CENTER,
+      zoom: DEFAULT_MAP_ZOOM,
+    });
+
+    map.addControl(new mapboxgl.NavigationControl(), "top-right");
+  }
+}
+
+function clearMapMarkers() {
+  mapMarkers.forEach((marker) => marker.remove());
+  mapMarkers = [];
+}
+
+function renderMap() {
+  const helper = document.getElementById("mapSetupHelper");
+  const mapCanvas = document.getElementById("mapCanvas");
+  const tokenInput = document.getElementById("mapboxTokenInput");
+
+  tokenInput.value = getMapboxToken();
+
+  if (!getMapboxToken()) {
+    helper.classList.remove("hidden");
+    mapCanvas.classList.add("hidden");
+    return;
+  }
+
+  helper.classList.add("hidden");
+  mapCanvas.classList.remove("hidden");
+  initMap();
+
+  if (!map) return;
+
+  clearMapMarkers();
+
+  const locations = filteredData.filter((person) => person.lat && person.lng);
+
+  locations.forEach((person) => {
+    const popup = new mapboxgl.Popup({ offset: 18 }).setHTML(`
+      <strong>${person.firstName} ${person.lastName}</strong><br>
+      Case #${person.id}<br>
+      ${person.cityLastSeen}, ${person.stateLastSeen}
+    `);
+
+    const marker = new mapboxgl.Marker({ color: "#c41e3a" })
+      .setLngLat([person.lng, person.lat])
+      .setPopup(popup)
+      .addTo(map);
+
+    mapMarkers.push(marker);
+  });
+
+  if (locations.length) {
+    const bounds = new mapboxgl.LngLatBounds();
+    locations.forEach((person) => bounds.extend([person.lng, person.lat]));
+    map.fitBounds(bounds, { padding: 40, maxZoom: 9 });
+  } else {
+    map.flyTo({ center: DEFAULT_MAP_CENTER, zoom: DEFAULT_MAP_ZOOM });
+  }
 }
 
 // Apply all active filters to the data
 function applyFilters() {
-  filteredData = SAMPLE_DATA.filter((person) => {
+  filteredData = caseData.filter((person) => {
     // Search filter
     if (filters.search) {
       const searchLower = filters.search.toLowerCase();
@@ -292,7 +385,7 @@ function applyFilters() {
 // Update the view based on current mode (list or map)
 function updateView() {
   document.getElementById("resultsCount").textContent =
-    `Showing ${filteredData.length} of ${SAMPLE_DATA.length} cases`;
+    `Showing ${filteredData.length} of ${caseData.length} cases`;
 
   if (currentView === "list") {
     document.getElementById("gridView").classList.remove("hidden");
@@ -306,7 +399,8 @@ function updateView() {
     document.getElementById("listViewButton").classList.remove("active");
     document.getElementById("mapViewButton").classList.add("active");
     document.getElementById("mapCount").textContent =
-      `📍 ${filteredData.length} locations to display`;
+      `📍 ${filteredData.filter((p) => p.lat && p.lng).length} locations currently mapped`;
+    renderMap();
   }
 }
 
@@ -320,7 +414,9 @@ function renderGrid() {
     card.className = "card";
     card.onclick = () => showModal(person);
 
-    const date = new Date(person.dateLastSeen).toLocaleDateString();
+    const date = person.dateLastSeen
+      ? new Date(person.dateLastSeen).toLocaleDateString()
+      : "Unknown";
 
     card.innerHTML = `
             <h3>${person.firstName} ${person.lastName}</h3>
@@ -342,7 +438,7 @@ function renderGrid() {
                 <span>${person.cityLastSeen}, ${person.stateLastSeen}</span>
             </div>
             <div class="card-footer">
-                <span>${person.gender}, ${person.age} years old</span>
+                <span>${person.gender}, ${person.age || "Unknown"} years old</span>
                 <button class="share-button" onclick="event.stopPropagation(); shareCase('${person.id}')">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="18" cy="5" r="3"></circle>
@@ -366,15 +462,17 @@ function showModal(person) {
     `${person.firstName} ${person.lastName}`;
   document.getElementById("modalCaseId").textContent = `Case #${person.id}`;
 
-  const date = new Date(person.dateLastSeen).toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
+  const date = person.dateLastSeen
+    ? new Date(person.dateLastSeen).toLocaleDateString("en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      })
+    : "Unknown";
   document.getElementById("modalDate").textContent = date;
   document.getElementById("modalLocation").textContent =
     `${person.cityLastSeen}, ${person.stateLastSeen}`;
-  document.getElementById("modalAge").textContent = `${person.age} years old`;
+  document.getElementById("modalAge").textContent = `${person.age || "Unknown"} years old`;
   document.getElementById("modalGender").textContent = person.gender;
   document.getElementById("modalRace").textContent = person.race;
   document.getElementById("modalPhysical").textContent =
@@ -401,10 +499,12 @@ function closeModal() {
 
 // Share a case using native share or clipboard
 function shareCase(caseId) {
-  const person = SAMPLE_DATA.find((p) => p.id === caseId);
+  const person = caseData.find((p) => p.id === caseId);
   if (!person) return;
 
-  const date = new Date(person.dateLastSeen).toLocaleDateString();
+  const date = person.dateLastSeen
+    ? new Date(person.dateLastSeen).toLocaleDateString()
+    : "Unknown";
   const text = `Help find ${person.firstName} ${person.lastName}, missing since ${date}. Last seen in ${person.cityLastSeen}, ${person.stateLastSeen}. More info: https://namus.gov/MissingPersons/Case#/${person.id}`;
 
   if (navigator.share) {

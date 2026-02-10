@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Every Missing Person Matters - NamUs Database Viewer</title>
+    <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/v3.9.4/mapbox-gl.css" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -138,31 +139,30 @@
         </div>
       </div>
 
+      <p class="api-status" id="apiStatus"></p>
+
       <p class="results-count" id="resultsCount"></p>
 
       <div id="gridView" class="grid"></div>
 
-      <div id="mapView" class="map-placeholder hidden">
-        <svg
-          width="64"
-          height="64"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-        >
-          <polygon
-            points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"
-          ></polygon>
-          <line x1="8" y1="2" x2="8" y2="18"></line>
-          <line x1="16" y1="6" x2="16" y2="22"></line>
-        </svg>
-        <h3>Map View</h3>
-        <p>
-          Interactive map showing locations where people were last seen. In a
-          production version, this would integrate with Google Maps or Mapbox to
-          display pins for each case with clustering for dense areas.
-        </p>
+      <div id="mapView" class="map-panel hidden">
+        <div id="mapSetupHelper" class="map-helper">
+          <h3>Connect your Mapbox account</h3>
+          <p>
+            Paste your public Mapbox access token to enable the live map. Your
+            token is saved in this browser only.
+          </p>
+          <div class="map-token-input-row">
+            <input
+              id="mapboxTokenInput"
+              type="password"
+              class="search-input"
+              placeholder="pk.eyJ..."
+            />
+            <button id="saveMapboxToken" class="button">Save Token</button>
+          </div>
+        </div>
+        <div id="mapCanvas" class="map-canvas hidden"></div>
         <div class="count" id="mapCount"></div>
       </div>
     </div>
@@ -265,6 +265,7 @@
       </p>
     </footer>
 
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.9.4/mapbox-gl.js"></script>
     <script src="index.js"></script>
   </body>
 </html>

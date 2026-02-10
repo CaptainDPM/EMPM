@@ -1,5 +1,4 @@
-const NAMUS_API_URL =
-  "https://www.namus.gov/api/CaseSets/NamUs/MissingPersons/Cases/Search";
+const NAMUS_API_URL = "/api/namus";
 const DEFAULT_MAP_CENTER = [-98.5795, 39.8283];
 const DEFAULT_MAP_ZOOM = 3;
 
@@ -84,7 +83,10 @@ function normalizeCase(apiCase) {
     cityLastSeen:
       apiCase.cityLastSeen || apiCase.city || apiCase.lastSeenCity || "Unknown",
     stateLastSeen:
-      apiCase.stateLastSeen || apiCase.state || apiCase.lastSeenState || "Unknown",
+      apiCase.stateLastSeen ||
+      apiCase.state ||
+      apiCase.lastSeenState ||
+      "Unknown",
     circumstances:
       apiCase.circumstances ||
       apiCase.circumstancesOfDisappearance ||
@@ -134,7 +136,10 @@ async function fetchNamUsData() {
     if (normalizedCases.length) {
       caseData = normalizedCases;
       filteredData = [...caseData];
-      setApiStatus(`Showing ${normalizedCases.length} live NamUs cases.`, "success");
+      setApiStatus(
+        `Showing ${normalizedCases.length} live NamUs cases.`,
+        "success",
+      );
       return;
     }
 
@@ -180,7 +185,8 @@ function populateStateFilter() {
 
 // Set a random featured case
 function setFeaturedCase() {
-  const featured = caseData[Math.floor(Math.random() * caseData.length)] || caseData[0];
+  const featured =
+    caseData[Math.floor(Math.random() * caseData.length)] || caseData[0];
   if (!featured) return;
 
   document.getElementById("featuredName").textContent =
@@ -472,7 +478,8 @@ function showModal(person) {
   document.getElementById("modalDate").textContent = date;
   document.getElementById("modalLocation").textContent =
     `${person.cityLastSeen}, ${person.stateLastSeen}`;
-  document.getElementById("modalAge").textContent = `${person.age || "Unknown"} years old`;
+  document.getElementById("modalAge").textContent =
+    `${person.age || "Unknown"} years old`;
   document.getElementById("modalGender").textContent = person.gender;
   document.getElementById("modalRace").textContent = person.race;
   document.getElementById("modalPhysical").textContent =

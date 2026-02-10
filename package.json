@@ -1,0 +1,25 @@
+{
+  "name": "empm",
+  "version": "1.0.0",
+  "description": "A web application designed to bring visibility to missing persons who don't receive media coverage. Built to display data from the National Missing and Unidentified Persons System (NamUs).",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CaptainDPM/EMPM.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/CaptainDPM/EMPM/issues"
+  },
+  "homepage": "https://github.com/CaptainDPM/EMPM#readme",
+  "dependencies": {
+    "express": "^5.2.1",
+    "node-fetch": "^3.3.2"
+  }
+}
